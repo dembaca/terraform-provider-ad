@@ -21,7 +21,9 @@ export AD_PASSWORD ?= changeme
 # The following variables are shared across various tests. To ensure all tests
 # succeed, it's probably best to set all of these to valid values.
 export AD_COMPUTER_DOMAIN          ?= base-linux # Active Directory Domain
-export AD_COMPUTER_OU_DISTINGUISHED_NAME	?= 'ou=DevComputers,dc=base-linux'  #AD OU Distinguished name
-export AD_GROUP_OU_DISTINGUISHED_NAME ?= 'ou=DevGroups,dc=base-linux'  #AD OU Distinguished name
+export AD_COMPUTER_OU_DISTINGUISHED_NAME	?= 'ou=DevComputers,dc=base-linux'  #AD Computer OU Distinguished name
+export AD_GROUP_OU_DISTINGUISHED_NAME ?= 'ou=DevGroups,dc=base-linux'  #AD Group OU Distinguished name
+export AD_USER_DOMAIN ?= server.domain
+export AD_USER_BASE_DISTINGUISHED_NAME ?= 'cn=Users,dc=base-linux' #AD User Container Distinguished name 
 
 # vi: filetype=make

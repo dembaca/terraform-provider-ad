@@ -26,7 +26,7 @@ func TestAccAdUser_basic(t *testing.T) {
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckAdUserExists("ad_user.test"),
 					resource.TestCheckResourceAttr(
-						"ad_user.test", "logon_name", "test"),
+						"ad_user.test", "logon_name", "terraformtest"),
 				),
 			},
 		},
@@ -36,6 +36,9 @@ func TestAccAdUser_basic(t *testing.T) {
 func testAccResourceAdUserPreCheck(t *testing.T) {
 	if v := os.Getenv("AD_USER_DOMAIN"); v == "" {
 		t.Fatal("User Domain must be set for acceptance tests")
+	}
+	if v := os.Getenv("AD_USER_BASE_DISTINGUISHED_NAME"); v == "" {
+		t.Fatal("AD User Base DN must be set for acceptance tests")
 	}
 }
 
@@ -52,19 +55,23 @@ func testAccCheckAdUserDestroy(n string) resource.TestCheckFunc {
 		}
 		client := testAccProvider.Meta().(*ldap.Conn)
 		domain := rs.Primary.Attributes["domain"]
-		var dnOfUser string
-		domainArr := strings.Split(domain, ".")
-		dnOfUser = "dc=" + domainArr[0]
-		for index, item := range domainArr {
-			if index == 0 {
-				continue
+		var userBaseDn string
+		if baseDn := rs.Primary.Attributes["base_dn"]; baseDn != "" {
+			userBaseDn = baseDn
+		} else {
+			domainArr := strings.Split(domain, ".")
+			userBaseDn = "dc=" + domainArr[0]
+			for index, item := range domainArr {
+				if index == 0 {
+					continue
+				}
+				userBaseDn += ",dc=" + item
 			}
-			dnOfUser += ",dc=" + item
 		}
 		searchRequest := ldap.NewSearchRequest(
-			dnOfUser,
+			userBaseDn,
 			ldap.ScopeWholeSubtree, ldap.NeverDerefAliases, 0, 0, false,
-			"(&(objectClass=User)(cn="+rs.Primary.Attributes["name"]+"))", // The filter to apply
+			"(&(objectClass=User)(logon_name="+rs.Primary.Attributes["logon_name"]+"))", // The filter to apply
 			[]string{"dn", "cn"}, // A list attributes to retrieve
 			nil,
 		)
@@ -94,19 +101,23 @@ func testAccCheckAdUserExists(n string) resource.TestCheckFunc {
 		}
 		client := testAccProvider.Meta().(*ldap.Conn)
 		domain := rs.Primary.Attributes["domain"]
-		var dnOfUser string
-		domainArr := strings.Split(domain, ".")
-		dnOfUser = "dc=" + domainArr[0]
-		for index, item := range domainArr {
-			if index == 0 {
-				continue
+		var userBaseDn string
+		if baseDn := rs.Primary.Attributes["base_dn"]; baseDn != "" {
+			userBaseDn = baseDn
+		} else {
+			domainArr := strings.Split(domain, ".")
+			userBaseDn = "dc=" + domainArr[0]
+			for index, item := range domainArr {
+				if index == 0 {
+					continue
+				}
+				userBaseDn += ",dc=" + item
 			}
-			dnOfUser += ",dc=" + item
 		}
 		searchRequest := ldap.NewSearchRequest(
-			dnOfUser,
+			userBaseDn,
 			ldap.ScopeWholeSubtree, ldap.NeverDerefAliases, 0, 0, false,
-			"(&(objectClass=User)(cn="+rs.Primary.Attributes["name"]+"))", // The filter to apply
+			"(&(objectClass=User)(logon_name="+rs.Primary.Attributes["logon_name"]+"))", // The filter to apply
 			[]string{"dn", "cn"}, // A list attributes to retrieve
 			nil,
 		)
@@ -132,15 +143,18 @@ provider "ad" {
 }
 resource "ad_user" "test" {
   domain = "%s"
+	base_dn = "%s"
   first_name = "first"
   last_name = "last"
-  logon_name = "test"
-  password = "testpassword"
+  logon_name = "terraformtest"
+	password = "testpassword"
+	email = "first.last@example.com"
 }`,
 		os.Getenv("AD_DOMAIN"),
 		os.Getenv("AD_IP"),
 		os.Getenv("AD_URL"),
 		os.Getenv("AD_USER"),
 		os.Getenv("AD_PASSWORD"),
-		os.Getenv("AD_USER_DOMAIN"))
+		os.Getenv("AD_USER_DOMAIN"),
+		os.Getenv("AD_USER_BASE_DISTINGUISHED_NAME"))
 }

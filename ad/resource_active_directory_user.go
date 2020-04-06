@@ -38,8 +38,19 @@ func resourceUser() *schema.Resource {
 				ForceNew: true,
 			},
 			"password": {
+				Type:      schema.TypeString,
+				Required:  true,
+				ForceNew:  true,
+				Sensitive: true,
+			},
+			"base_dn": {
 				Type:     schema.TypeString,
-				Required: true,
+				Optional: true,
+				ForceNew: true,
+			},
+			"email": {
+				Type:     schema.TypeString,
+				Optional: true,
 				ForceNew: true,
 			},
 		},
@@ -57,16 +68,22 @@ func resourceADUserCreate(d *schema.ResourceData, m interface{}) error {
 	logonName := d.Get("logon_name").(string)
 	upn := logonName + "@" + domain
 	userName := firstName + " " + lastName
+	email := d.Get("email").(string)
+
 	var dnOfUser string // dnOfUser: distingished names uniquely identifies an entry to AD.
-	dnOfUser += "CN=" + userName + ",CN=Users"
-	domainArr := strings.Split(domain, ".")
-	for _, i := range domainArr {
-		dnOfUser += ",DC=" + i
+	if userBaseDn := d.Get("base_dn").(string); userBaseDn != "" {
+		dnOfUser += "CN=" + userName + "," + userBaseDn
+	} else {
+		dnOfUser += "CN=" + userName + ",CN=Users"
+		domainArr := strings.Split(domain, ".")
+		for _, i := range domainArr {
+			dnOfUser += ",DC=" + i
+		}
 	}
 
 	log.Printf("[DEBUG] dnOfUser: %s ", dnOfUser)
 	log.Printf("[DEBUG] Adding user : %s ", userName)
-	err := addUser(userName, dnOfUser, client, upn, lastName, pass)
+	err := addUser(userName, dnOfUser, client, upn, lastName, pass, email)
 	if err != nil {
 		log.Printf("[ERROR] Error while adding user: %s ", err)
 		return fmt.Errorf("Error while adding user %s", err)
@@ -84,20 +101,22 @@ func resourceADUserRead(d *schema.ResourceData, m interface{}) error {
 	lastName := d.Get("last_name").(string)
 	domain := d.Get("domain").(string)
 	userName := firstName + " " + lastName
-	var dnOfUser string // dnOfUser: distingished names uniquely identifies an entry to AD.
-	domainArr := strings.Split(domain, ".")
-	dnOfUser = "dc=" + domainArr[0]
-	for index, i := range domainArr {
-		if index == 0 {
-			continue
+
+	var userBaseDn string // baseDn: search base on AD query
+	if baseDn := d.Get("base_dn").(string); baseDn != "" {
+		userBaseDn = baseDn
+	} else {
+		userBaseDn += "CN=Users"
+		domainArr := strings.Split(domain, ".")
+		for _, i := range domainArr {
+			userBaseDn += ",DC=" + i
 		}
-		dnOfUser += ",dc=" + i
 	}
-	log.Printf("[DEBUG] dnOfUser: %s ", dnOfUser)
-	log.Printf("[DEBUG] Deleting user : %s ", userName)
+
+	log.Printf("[DEBUG] userBaseDn for search: %s ", userBaseDn)
 
 	NewReq := ldap.NewSearchRequest(
-		dnOfUser, // base dnOfUser.
+		userBaseDn, // base DN for search
 		ldap.ScopeWholeSubtree, ldap.NeverDerefAliases, 0, 0,
 		false,
 		"(&(objectClass=User)(cn="+userName+"))", //applied filter
@@ -137,12 +156,18 @@ func resourceADUserDelete(d *schema.ResourceData, m interface{}) error {
 	lastName := d.Get("last_name").(string)
 	domain := d.Get("domain").(string)
 	userName := firstName + " " + lastName
+
 	var dnOfUser string
-	dnOfUser += "CN=" + userName + ",CN=Users"
-	domainArr := strings.Split(domain, ".")
-	for _, i := range domainArr {
-		dnOfUser += ",DC=" + i
+	if userBaseDn := d.Get("base_dn").(string); userBaseDn != "" {
+		dnOfUser += "CN=" + userName + "," + userBaseDn
+	} else {
+		dnOfUser += "CN=" + userName + ",CN=Users"
+		domainArr := strings.Split(domain, ".")
+		for _, i := range domainArr {
+			dnOfUser += ",DC=" + i
+		}
 	}
+
 	log.Printf("[DEBUG] dnOfUser: %s ", dnOfUser)
 	log.Printf("[DEBUG] deleting user : %s ", userName)
 	err := delUser(userName, dnOfUser, client)
@@ -155,7 +180,7 @@ func resourceADUserDelete(d *schema.ResourceData, m interface{}) error {
 }
 
 // Helper function for adding user:
-func addUser(userName string, dnName string, adConn *ldap.Conn, upn string, lastName string, pass string) error {
+func addUser(userName string, dnName string, adConn *ldap.Conn, upn string, lastName string, pass string, email string) error {
 	a := ldap.NewAddRequest(dnName, nil) // returns a new AddRequest without attributes " with dn".
 	a.Attribute("objectClass", []string{"organizationalPerson", "person", "top", "user"})
 	a.Attribute("sAMAccountName", []string{userName})
@@ -163,6 +188,9 @@ func addUser(userName string, dnName string, adConn *ldap.Conn, upn string, last
 	a.Attribute("name", []string{userName})
 	a.Attribute("sn", []string{lastName})
 	a.Attribute("userPassword", []string{pass})
+	if email != "" {
+		a.Attribute("mail", []string{email})
+	}
 
 	err := adConn.Add(a)
 	if err != nil {
