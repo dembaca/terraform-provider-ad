@@ -43,7 +43,7 @@ func resourceUser() *schema.Resource {
 				ForceNew:  true,
 				Sensitive: true,
 			},
-			"base_dn": {
+			"ou_distinguished_name": {
 				Type:     schema.TypeString,
 				Optional: true,
 				ForceNew: true,
@@ -71,7 +71,7 @@ func resourceADUserCreate(d *schema.ResourceData, m interface{}) error {
 	email := d.Get("email").(string)
 
 	var dnOfUser string // dnOfUser: distingished names uniquely identifies an entry to AD.
-	if userBaseDn := d.Get("base_dn").(string); userBaseDn != "" {
+	if userBaseDn := d.Get("ou_distinguished_name").(string); userBaseDn != "" {
 		dnOfUser += "CN=" + userName + "," + userBaseDn
 	} else {
 		dnOfUser += "CN=" + userName + ",CN=Users"
@@ -103,7 +103,7 @@ func resourceADUserRead(d *schema.ResourceData, m interface{}) error {
 	userName := firstName + " " + lastName
 
 	var userBaseDn string // baseDn: search base on AD query
-	if baseDn := d.Get("base_dn").(string); baseDn != "" {
+	if baseDn := d.Get("ou_distinguished_name").(string); baseDn != "" {
 		userBaseDn = baseDn
 	} else {
 		userBaseDn += "CN=Users"
@@ -158,7 +158,7 @@ func resourceADUserDelete(d *schema.ResourceData, m interface{}) error {
 	userName := firstName + " " + lastName
 
 	var dnOfUser string
-	if userBaseDn := d.Get("base_dn").(string); userBaseDn != "" {
+	if userBaseDn := d.Get("ou_distinguished_name").(string); userBaseDn != "" {
 		dnOfUser += "CN=" + userName + "," + userBaseDn
 	} else {
 		dnOfUser += "CN=" + userName + ",CN=Users"

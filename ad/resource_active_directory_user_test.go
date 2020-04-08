@@ -56,7 +56,7 @@ func testAccCheckAdUserDestroy(n string) resource.TestCheckFunc {
 		client := testAccProvider.Meta().(*ldap.Conn)
 		domain := rs.Primary.Attributes["domain"]
 		var userBaseDn string
-		if baseDn := rs.Primary.Attributes["base_dn"]; baseDn != "" {
+		if baseDn := rs.Primary.Attributes["ou_distinguished_name"]; baseDn != "" {
 			userBaseDn = baseDn
 		} else {
 			domainArr := strings.Split(domain, ".")
@@ -102,7 +102,7 @@ func testAccCheckAdUserExists(n string) resource.TestCheckFunc {
 		client := testAccProvider.Meta().(*ldap.Conn)
 		domain := rs.Primary.Attributes["domain"]
 		var userBaseDn string
-		if baseDn := rs.Primary.Attributes["base_dn"]; baseDn != "" {
+		if baseDn := rs.Primary.Attributes["ou_distinguished_name"]; baseDn != "" {
 			userBaseDn = baseDn
 		} else {
 			domainArr := strings.Split(domain, ".")
@@ -143,7 +143,7 @@ provider "ad" {
 }
 resource "ad_user" "test" {
   domain = "%s"
-	base_dn = "%s"
+	ou_distinguished_name = "%s"
   first_name = "first"
   last_name = "last"
   logon_name = "terraformtest"
